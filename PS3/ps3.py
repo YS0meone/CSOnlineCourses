@@ -14,6 +14,7 @@ import string
 VOWELS = 'aeiou'
 CONSONANTS = 'bcdfghjklmnpqrstvwxyz'
 HAND_SIZE = 7
+SEPERARTER = "----------"
 
 SCRABBLE_LETTER_VALUES = {
     'a': 1, 'b': 3, 'c': 3, 'd': 2, 'e': 1, 'f': 4, 'g': 2, 'h': 4, 'i': 1, 'j': 8, 'k': 5, 'l': 1, 'm': 3, 'n': 1, 'o': 1, 'p': 3, 'q': 10, 'r': 1, 's': 1, 't': 1, 'u': 1, 'v': 4, 'w': 4, 'x': 8, 'y': 4, 'z': 10
@@ -91,8 +92,14 @@ def get_word_score(word, n):
     n: int >= 0
     returns: int >= 0
     """
-    
-    pass  # TO DO... Remove this line when you implement this function
+    word = word.lower()
+    score1 = 0
+    for c in word:
+        if c == "*":
+            continue
+        score1 += SCRABBLE_LETTER_VALUES[c]
+    word_len = len(word)
+    return score1 * max((7 * word_len - 3 * (n - word_len)), 1)
 
 #
 # Make sure you understand how this function works and what it does!
@@ -167,8 +174,14 @@ def update_hand(hand, word):
     hand: dictionary (string -> int)    
     returns: dictionary (string -> int)
     """
-
-    pass  # TO DO... Remove this line when you implement this function
+    word = word.lower()
+    new_hand = hand.copy()
+    for letter in word:
+        if letter in new_hand:
+            new_hand[letter] -= 1
+            if new_hand[letter] == 0:
+                del new_hand[letter]
+    return new_hand
 
 #
 # Problem #3: Test word validity
@@ -184,8 +197,20 @@ def is_valid_word(word, hand, word_list):
     word_list: list of lowercase strings
     returns: boolean
     """
-
-    pass  # TO DO... Remove this line when you implement this function
+    word = word.lower()
+    find = False
+    for other_word in word_list:
+        if is_match(word, other_word):
+            find = True
+            # print(other_word)
+            break
+    if not find:
+        return False
+    word_freq = get_frequency_dict(word)
+    for letter in word_freq.keys():
+        if letter not in hand or word_freq[letter] > hand[letter]:
+            return False
+    return True
 
 #
 # Problem #5: Playing a hand
@@ -197,8 +222,10 @@ def calculate_handlen(hand):
     hand: dictionary (string-> int)
     returns: integer
     """
-    
-    pass  # TO DO... Remove this line when you implement this function
+    handlen = 0
+    for letter in hand:
+        handlen += hand[letter]
+    return handlen
 
 def play_hand(hand, word_list):
 
@@ -230,6 +257,28 @@ def play_hand(hand, word_list):
       returns: the total score for the hand
       
     """
+    total_score = 0
+    n = calculate_handlen(hand)
+    while n > 0:
+        print("Current Hand: ", end="")
+        display_hand(hand)
+        user_input = input("Enter word, or \"!!\" to indicate that you are finished: ")
+        if user_input == "!!":
+            break
+        if is_valid_word(user_input, hand, word_list):
+            word_score = get_word_score(user_input, n)
+            total_score += word_score
+            print("\"{}\" earned {} points. Total: {} points".format(user_input, word_score, total_score))
+        else:
+            print("That is not a valid word. Please choose another word.")
+        hand = update_hand(hand, user_input)
+        n = calculate_handlen(hand)
+        print()
+    if n == 0:
+        print("Ran out of letters.\n Total score for this hand: {} points".format(total_score))
+    else:
+        print("Total score for this hand: {} points".format(total_score))
+    return total_score
     
     # BEGIN PSEUDOCODE <-- Remove this comment when you implement this function
     # Keep track of the total score
@@ -296,9 +345,18 @@ def substitute_hand(hand, letter):
     letter: string
     returns: dictionary (string -> int)
     """
-    
-    pass  # TO DO... Remove this line when you implement this function
-       
+    if letter not in hand:
+        return hand
+    available_letters = []
+    for c in string.ascii_lowercase:
+        if c not in hand:
+            available_letters.append(c)
+    substitute = random.choice(available_letters)
+    ret_dict = hand.copy()
+    ret_dict[substitute] = hand[letter]
+    del ret_dict[letter]
+    return ret_dict    
+
     
 def play_game(word_list):
     """
@@ -330,9 +388,46 @@ def play_game(word_list):
 
     word_list: list of lowercase strings
     """
-    
-    print("play_game not implemented.") # TO DO... Remove this line when you implement this function
-    
+    total_hands = int(input("Enter total number of hands: "))
+    used_substitue = False
+    want_replay = False
+    used_replay = False
+    prev_hand = {}
+    score_board = []
+    while total_hands > 0:
+        if want_replay:
+            hand = prev_hand.copy()
+        else:
+            hand = deal_hand(HAND_SIZE)
+        prev_hand = hand.copy()
+        
+        if not want_replay and not used_substitue:
+            print("Current hand: ", end="")
+            display_hand(hand)
+            response = input("Would you like to substitue a letter? ").lower()
+            if response == "yes":
+                sub_letter = input("Which letter would you like to replace: ").lower()
+                hand = substitute_hand(hand, sub_letter)
+                # print(hand)
+                used_substitue = True
+            print()
+        hand_score = play_hand(hand, word_list)
+        want_replay = False
+        print(SEPERARTER)
+        if not used_replay:
+            if input("Would you like to replay the hand? ").lower() == "yes":
+                want_replay = True
+                used_replay = True
+                continue
+        score_board.append(hand_score)
+        total_hands -= 1
+    ret = sum(score_board)
+    print("Total score over all hands:", ret)
+    return ret
+
+
+        
+
 
 
 #
@@ -340,6 +435,21 @@ def play_game(word_list):
 # Do not remove the "if __name__ == '__main__':" line - this code is executed
 # when the program is run directly, instead of through an import statement
 #
+
+def is_match(my_word, other_word):
+    if len(my_word) != len(other_word):
+        return False
+    for i in range(len(my_word)):
+        if my_word[i] != "*":
+            if my_word[i] != other_word[i]:
+                return False
+        else:
+            if other_word[i] not in VOWELS:
+                return False
+    return True
+
+
 if __name__ == '__main__':
     word_list = load_words()
     play_game(word_list)
+    # print(substitute_hand({'h':1, 'e':1, 'l':2, 'o':1}, 'l'))
